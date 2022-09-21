@@ -14,6 +14,51 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
+  kind_setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out forklift repository
+        uses: actions/checkout@v3
+
+      - name: Checkout forkliftci
+        uses: actions/checkout@v3
+        with:
+          repository: kubev2v/forkliftci
+          path: forkliftci
+
+      - name: Bazel cache
+        id: bazel-cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache/bazel
+          key: ${{ runner.os }}-bazel-cache-${{ hashFiles('WORKSPACE') }}
+
+      - name: Add cwd to path for kubectl.
+        run: echo `pwd` >> $GITHUB_PATH
+
+      - name: Get kubectl
+        run: curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+      - run: chmod u+x kubectl
+
+      - name: Build and setup everything with bazel
+        run: |
+          cd forkliftci
+          FORKLIFT_DIR=${{ github.workspace }} ./build_and_setup_everything_bazel.sh
+          cd ..
+
+      - run: kubectl version
+
+      - run: kubectl wait deployment -n konveyor-forklift forklift-controller --for condition=Available=True --timeout=180s
+
+      - run: kubectl get pods -n konveyor-forklift
+
+      - run: echo "CLUSTER=`kind get kubeconfig | grep server | cut -d ' ' -f6`" >> $GITHUB_ENV
+      - run: echo "TOKEN=`kubectl get secrets -n kube-system -o jsonpath='{.items[0].data.token-id}' | base64 -d`.`kubectl get secrets -n kube-system -o jsonpath='{.items[0].data.token-secret}' | base64 -d`" >> $GITHUB_ENV
+
+      - name: Test call to Forklift
+        run: |
+          curl -k "$CLUSTER/apis/forklift.konveyor.io/v1beta1/namespaces/konveyor-forklift/providers" --header "Authorization: Bearer $TOKEN"
+
   # This workflow contains a single job called "build"
   build:
     # The type of runner that the job will run on
