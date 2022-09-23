@@ -1,16 +1,10 @@
 # Basic CI workflow for pull requests
 name: test_kind_action
 
-# Controls when the action will run. 
 on:
-  # Triggers the workflow on push or pull request events but only for the main branch
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
+      name:
+        description: 'Test Forklift on KinD'
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
@@ -23,15 +17,9 @@ jobs:
       - name: Checkout forkliftci
         uses: actions/checkout@v3
         with:
-          repository: kubev2v/forkliftci
+          repository: rokkbert/forkliftci
+          ref: kindtest
           path: forkliftci
-
-      - name: Bazel cache
-        id: bazel-cache
-        uses: actions/cache@v3
-        with:
-          path: ~/.cache/bazel
-          key: ${{ runner.os }}-bazel-cache-${{ hashFiles('WORKSPACE') }}
 
 #      - name: Add cwd to path for kubectl.
 #        run: echo `pwd` >> $GITHUB_PATH
@@ -46,7 +34,7 @@ jobs:
       - name: Build and setup everything with bazel
         run: |
           cd forkliftci
-          FORKLIFT_DIR=${{ github.workspace }} ../build_and_setup_everything_bazel.sh
+          FORKLIFT_DIR=${{ github.workspace }} ./build_and_setup_everything_bazel.sh
           cd ..
 
       - run: kubectl version
